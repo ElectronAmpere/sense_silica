@@ -1,35 +1,35 @@
-#include <Arduino.h>
-
 /**
  * Simple Blink Example for RIoS
  * https://www.cs.ucr.edu/~vahid/pubs/wese12_rios.pdf
- * www.cs.ucr.edu/~vahid/rios/
+ * https://www.cs.ucr.edu/~vahid/rios/
+ * https://www.cs.ucr.edu/~vahid/pes/RITools/ 
  */
-#include "../include/rios.h"
-#include "../include/rios_timer.h"
+#include <avr/io.h>
+#include <avr/interrupt.h>
 
-// Example tick functions (must match signature)
-int TickFct_1(int state);
-int TickFct_2(int state);
-int TickFct_3(int state);
+ISR(TIMER1_OVF_vect) {
 
-int main(void)
-{
-    // Initialize kernel with 25 ms base tick (GCD)
-    rios_init(25);
+    // Toggle the 5th data register of PORTB
+    PORTB ^= (1 << PORTB5);
 
-    // Register tasks: (function, init_state, period_ms)
-    rios_add_task(TickFct_1, -1, 25);
-    rios_add_task(TickFct_2, -1, 50);
-    rios_add_task(TickFct_3, -1, 100);
-
-    // Start kernel (starts timer)
-    rios_start();
-
-    // Main can sleep; scheduler runs in ISR
-    while (1) {
-        // Optionally enter low-power mode or handle background housekeeping
-        ;
-    }
+    // 100ms for 16MHz clock
+    TCNT1 = 63974;
 }
 
+int main() {
+    
+    DDRB = (1 << DDB5); // Set 5th data direction register of PORTB. A set value means output
+    TCNT1 = 63974; // 100 ms for 16MHz clock
+    TCCR1A = 0x00; // Set normal counter mode
+    TCCR1B = (1<<CS10) | (1<<CS12); // Set 1024 pre-scaler
+    TIMSK1 = (1 << TOIE1); // Set overflow interrupt enable bit
+    sei(); // Enable interrupts globally
+    
+    while(1)
+    {
+        // Do anything, this timer is non-blocking. It will interrupt the CPU only when needed
+    }
+    
+    // Add return so old compilers don't cry about it being missing. Under normal circumstances this will never be hit
+    return 0;
+}
