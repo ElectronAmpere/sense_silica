@@ -1,6 +1,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/atomic.h>
+#include "scheduler.h"
 
 #ifndef F_CPU
 #define F_CPU 16000000UL
@@ -69,4 +70,10 @@ void timer1_set_period_ms(uint16_t period_ms)
     // Start Timer1 with prescaler = 1024
     // Prescaler bit mask for CS12:CS10 = 1 0 1 (1024)  
     TCCR1B |= (_BV(CS12) | _BV(CS10));
+}
+
+// Timer1 compare match interrupt service routine dispatches to scheduler
+ISR(TIMER1_COMPA_vect)
+{
+    scheduler_tick();
 }
