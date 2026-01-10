@@ -6,6 +6,7 @@
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/atomic.h>
 
 #ifndef F_CPU
 #define F_CPU 16000000UL
@@ -15,6 +16,34 @@
 
 // Prescaler bit mask for CS12:CS10 = 1 0 1 (1024)
 #define TIMER1_CS_BITS        (_BV(CS12) | _BV(CS10))
+
+// Atomic helpers for 16-bit Timer1 registers (datasheet requires byte-ordering)
+static inline void timer1_write_ocr1a_atomic(uint16_t value)
+{
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        OCR1AH = (uint8_t)(value >> 8);
+        OCR1AL = (uint8_t)(value & 0xFF);
+    }
+}
+
+static inline void timer1_write_tcnt1_atomic(uint16_t value)
+{
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        TCNT1H = (uint8_t)(value >> 8);
+        TCNT1L = (uint8_t)(value & 0xFF);
+    }
+}
+
+static inline uint16_t timer1_read_tcnt1_atomic(void)
+{
+    uint8_t low, high;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        // Read low first to latch high byte per datasheet
+        low = TCNT1L;
+        high = TCNT1H;
+    }
+    return (uint16_t)((high << 8) | low);
+}
 
 ISR(TIMER1_COMPA_vect) {
     // Toggle LED on PB5 at each compare match; no reload needed
@@ -39,11 +68,13 @@ void timer1_set_period_ms(uint16_t period_ms)
     if (ticks > 65536UL) {
         ticks = 65536UL; // clamp to 16-bit timer range
     }
-    OCR1A = (uint16_t)(ticks - 1UL);
+    // Atomic write to 16-bit OCR1A (high then low)
+    timer1_write_ocr1a_atomic((uint16_t)(ticks - 1UL));
 
     // Clear pending compare flag and counter
     TIFR1 |= _BV(OCF1A);
-    TCNT1 = 0;
+    // Atomic clear of 16-bit counter
+    timer1_write_tcnt1_atomic(0);
 
     // Enable compare A interrupt only
     TIMSK1 &= ~(_BV(TOIE1));
