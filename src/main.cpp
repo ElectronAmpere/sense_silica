@@ -14,9 +14,6 @@
 
 #define TIMER1_PRESCALER       1024UL
 
-// Prescaler bit mask for CS12:CS10 = 1 0 1 (1024)
-#define TIMER1_CS_BITS        (_BV(CS12) | _BV(CS10))
-
 // Atomic helpers for 16-bit Timer1 registers (datasheet requires byte-ordering)
 static inline void timer1_write_ocr1a_atomic(uint16_t value)
 {
@@ -81,7 +78,8 @@ void timer1_set_period_ms(uint16_t period_ms)
     TIMSK1 |= _BV(OCIE1A);
 
     // Start Timer1 with prescaler = 1024
-    TCCR1B |= TIMER1_CS_BITS;
+    // Prescaler bit mask for CS12:CS10 = 1 0 1 (1024)  
+    TCCR1B |= (_BV(CS12) | _BV(CS10));
 }
 
 void TimerSet(void)
