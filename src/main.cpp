@@ -25,9 +25,10 @@
 #include "modbus_registers.h"
 #include "modbus_client.h"
 #include "soil_sensor.h"
+#include "logger.h"
 
 #define RE_PIN  8
-#define DE_PIN  9
+#define DE_PIN  7
 
 int Task_ToggleLED(int state);
 int Task_SoilSensor(int state);
@@ -47,6 +48,7 @@ static task tasks[TOTAL_TASKS_NUM] = {
 SoftwareSerial mySerial(2, 3); // RX, TX
 static ModbusClientConfig gModbusClient;
 static SoilSensor gSensor;
+static bool gDidRawDump = false;
 
 int Task_ToggleLED(int state) {
     switch(state) {
@@ -68,6 +70,24 @@ static void print_all_values();
 int Task_SoilSensor(int state) {
     switch(state) {
         case 0:
+            if (!gDidRawDump) {
+                gDidRawDump = true;
+                uint8_t req[8];
+                modbus_rtu_build_read_request(0x01, 0x001E, 1, req);
+                uint8_t buf[32]; uint8_t len = 0;
+                bool ok = modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
+                Serial.print("RAW resp ("); Serial.print(len); Serial.println(") bytes:");
+                for (uint8_t i = 0; i < len; ++i) { Serial.print(buf[i], HEX); Serial.print(' '); }
+                Serial.println();
+
+                // Also dump moisture+temperature (0x0012, qty=2)
+                modbus_rtu_build_read_request(0x01, 0x0012, 2, req);
+                len = 0;
+                ok = modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
+                Serial.print("RAW resp MT ("); Serial.print(len); Serial.println(") bytes:");
+                for (uint8_t i = 0; i < len; ++i) { Serial.print(buf[i], HEX); Serial.print(' '); }
+                Serial.println();
+            }
             // Read and display all primary values from sensor
             print_all_values();
             state = 0;
@@ -111,12 +131,41 @@ int main() {
     gModbusClient.io = &mySerial;
     gModbusClient.rePin = RE_PIN;
     gModbusClient.dePin = DE_PIN;
+    gModbusClient.reActiveLow = true;   // MAX485 default
+    gModbusClient.deActiveHigh = true;  // MAX485 default
     gModbusClient.rs485 = NPK_RS485_DEFAULT;
-    gModbusClient.timeoutMs = 200;
+    gModbusClient.timeoutMs = 500;
     gModbusClient.maxRetries = 2;
+    gModbusClient.trace = true; // enable detailed tracing
     modbus_client_init(&gModbusClient);
 
-    soil_sensor_init(&gSensor, &gModbusClient, 0x01);
+    // Probe for sensor across common baud rates and addresses
+    const uint32_t bauds[] = {9600, 4800, 2400};
+    const uint8_t addrs[] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    uint8_t foundAddr = 0;
+    uint32_t foundBaud = 0;
+    for (uint8_t bi = 0; bi < sizeof(bauds)/sizeof(bauds[0]); ++bi) {
+        foundAddr = 0; foundBaud = bauds[bi];
+        mySerial.begin(foundBaud);
+        gModbusClient.rs485.baudRate = foundBaud;
+        modbus_client_init(&gModbusClient);
+        if (modbus_client_probe_addresses(&gModbusClient, addrs, sizeof(addrs), &foundAddr)) {
+            break;
+        }
+    }
+    if (foundAddr == 0) {
+        Serial.println("Probe failed: defaulting to addr 0x01 @ 9600");
+        foundAddr = 0x01;
+        foundBaud = 9600;
+        mySerial.begin(foundBaud);
+        gModbusClient.rs485.baudRate = foundBaud;
+        modbus_client_init(&gModbusClient);
+    } else {
+        Serial.print("Probe success: addr="); Serial.print(foundAddr, HEX);
+        Serial.print(" baud="); Serial.println(foundBaud);
+    }
+
+    soil_sensor_init(&gSensor, &gModbusClient, foundAddr);
 
     // Initialize scheduler with tasks
     scheduler_init(tasks, TOTAL_TASKS_NUM);

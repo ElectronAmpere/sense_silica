@@ -23,6 +23,8 @@ This project reads an RS485 soil sensor (NPK + temperature, humidity, pH, conduc
 
 - `modbus_client_init(cfg)`: Configure RE/DE pins and defaults.
 - `modbus_client_read_holding(cfg, address, regStart, qty, outValues)`: Reads `qty` registers.
+- `modbus_client_request_raw(cfg, req, reqLen, outBuf, maxOut, outLen)`: Diagnostic raw send/receive.
+- `modbus_client_probe_addresses(cfg, addrs[], addrCount, &outAddr)`: Probe for a responding device on the current baud.
 - `soil_sensor_read_ph(sensor, &ph)` → float pH (0.01 pH per unit).
 - `soil_sensor_read_moisture_temperature(sensor, &pct, &tempC)` → moisture %RH (0.1), temperature °C (0.1, signed).
 - `soil_sensor_read_conductivity(sensor, &uS)` → µS/cm.
@@ -41,9 +43,10 @@ This project reads an RS485 soil sensor (NPK + temperature, humidity, pH, conduc
 
 ## Usage
 
-See `src/main.cpp` for initialization and periodic polling. To adjust baud rate, change `NPK_RS485_DEFAULT.baudRate` in `include/rs485.h` and rebuild.
+See `src/main.cpp` for initialization and periodic polling. On startup, the app probes common baud rates (9600/4800/2400) and addresses (1–5); if a device responds, it logs and uses the detected pair. To adjust defaults, change `NPK_RS485_DEFAULT.baudRate` in `include/rs485.h`.
 
 ## Notes
 
 - The Modbus client enforces the initial silent interval and validates CRC. Add a post‑response silent interval if polling faster than ~100 ms.
 - Temperature is signed: register value is 0.1 °C per unit; negative values are two’s complement.
+- RE/DE polarity: `ModbusClientConfig` supports `reActiveLow` and `deActiveHigh` for MAX485 and similar. If wiring is inverted, adjust these flags accordingly.
