@@ -20,6 +20,11 @@
 
 /** Custom library */
 #include "timer.h"
+#include "modbus_rtu.h"
+#include "rs485.h"
+#include "modbus_registers.h"
+#include "modbus_client.h"
+#include "soil_sensor.h"
 
 #define RE_PIN  8
 #define DE_PIN  9
@@ -40,6 +45,8 @@ static task tasks[TOTAL_TASKS_NUM] = {
 };
     
 SoftwareSerial mySerial(2, 3); // RX, TX
+static ModbusClientConfig gModbusClient;
+static SoilSensor gSensor;
 
 int Task_ToggleLED(int state) {
     switch(state) {
@@ -56,15 +63,13 @@ int Task_ToggleLED(int state) {
 }
 
 // Modbus RTU helpers for JXBS-3001-NPK-RS
-static uint16_t modbus_crc16(const uint8_t* data, size_t len);
-static bool rs485_read_register(uint8_t slaveId, uint16_t regAddr, uint16_t* outValue);
-static void print_npk_values();
+static void print_all_values();
 
 int Task_SoilSensor(int state) {
     switch(state) {
         case 0:
-            // Read and display all NPK values from sensor
-            print_npk_values();
+            // Read and display all primary values from sensor
+            print_all_values();
             state = 0;
             break;
         default:
@@ -77,93 +82,19 @@ int Task_SoilSensor(int state) {
 // (legacy nitro/values removed; using generic Modbus helper)
 
 // --- Modbus RTU helpers for JXBS-3001-NPK-RS ---
-static uint16_t modbus_crc16(const uint8_t* data, size_t len) {
-    uint16_t crc = 0xFFFF;
-    for (size_t i = 0; i < len; ++i) {
-        crc ^= (uint16_t)data[i];
-        for (uint8_t b = 0; b < 8; ++b) {
-            if (crc & 0x0001) {
-                crc = (crc >> 1) ^ 0xA001;
-            } else {
-                crc >>= 1;
-            }
-        }
+static void print_all_values() {
+    SoilData d;
+    if (!soil_sensor_read_all(&gSensor, &d)) {
+        Serial.println("Sensor read failed");
+        return;
     }
-    return crc;
-}
-
-static bool rs485_read_register(uint8_t slaveId, uint16_t regAddr, uint16_t* outValue) {
-    uint8_t frame[8];
-    frame[0] = slaveId;
-    frame[1] = 0x03; // Read Holding Registers
-    frame[2] = (uint8_t)(regAddr >> 8);
-    frame[3] = (uint8_t)(regAddr & 0xFF);
-    frame[4] = 0x00;
-    frame[5] = 0x01; // read 1 register
-    uint16_t crc = modbus_crc16(frame, 6);
-    frame[6] = (uint8_t)(crc & 0xFF);       // CRC low
-    frame[7] = (uint8_t)((crc >> 8) & 0xFF); // CRC high
-
-    // Transmit request
-    digitalWrite(RE_PIN, HIGH);
-    digitalWrite(DE_PIN, HIGH);
-    delayMicroseconds(300);
-    size_t written = mySerial.write(frame, sizeof(frame));
-    if (written != sizeof(frame)) {
-        // Ensure we return to receive mode even on error
-        digitalWrite(DE_PIN, LOW);
-        digitalWrite(RE_PIN, LOW);
-        return false;
-    }
-    // Switch to receive
-    digitalWrite(DE_PIN, LOW);
-    digitalWrite(RE_PIN, LOW);
-
-    // Expect 7-byte response: id, func, bytecount(2), data_hi, data_lo, crc_lo, crc_hi
-    uint8_t resp[7];
-    uint8_t idx = 0;
-    const uint32_t timeout_us = 200000UL; // 200 ms
-    uint32_t waited = 0;
-    while (idx < 7 && waited < timeout_us) {
-        if (mySerial.available()) {
-            int c = mySerial.read();
-            if (c >= 0) {
-                resp[idx++] = (uint8_t)c;
-            }
-        } else {
-            delayMicroseconds(100);
-            waited += 100;
-        }
-    }
-    if (idx < 7) {
-        return false; // timeout
-    }
-
-    // Validate response
-    if (resp[0] != slaveId || resp[1] != 0x03 || resp[2] != 0x02) {
-        return false;
-    }
-    uint16_t respCrcCalc = modbus_crc16(resp, 5);
-    uint16_t respCrc = (uint16_t)resp[5] | ((uint16_t)resp[6] << 8);
-    if (respCrcCalc != respCrc) {
-        return false;
-    }
-
-    *outValue = ((uint16_t)resp[3] << 8) | (uint16_t)resp[4];
-    return true;
-}
-
-static void print_npk_values() {
-    const uint8_t slaveId = 0x01;
-    // JXBS-3001-NPK-RS registers: 0x001E (N), 0x001F (P), 0x0020 (K)
-    uint16_t n = 0, p = 0, k = 0;
-    bool okN = rs485_read_register(slaveId, 0x001E, &n);
-    bool okP = rs485_read_register(slaveId, 0x001F, &p);
-    bool okK = rs485_read_register(slaveId, 0x0020, &k);
-
-    Serial.print("N (mg/kg): "); Serial.print(okN ? n : 0);
-    Serial.print(" | P (mg/kg): "); Serial.print(okP ? p : 0);
-    Serial.print(" | K (mg/kg): "); Serial.println(okK ? k : 0);
+    Serial.print("pH: "); Serial.print(d.ph, 2);
+    Serial.print(" | RH (%): "); Serial.print(d.moisturePct, 1);
+    Serial.print(" | Temp (C): "); Serial.print(d.temperatureC, 1);
+    Serial.print(" | EC (uS/cm): "); Serial.print(d.conductivity);
+    Serial.print(" | N (mg/kg): "); Serial.print(d.nitrogen);
+    Serial.print(" | P (mg/kg): "); Serial.print(d.phosphorus);
+    Serial.print(" | K (mg/kg): "); Serial.println(d.potassium);
 }
 
 // (removed legacy getSoilNitrogenLevel; using print_npk_values in task)
@@ -173,15 +104,19 @@ int main() {
     // Set PB5 as output without clobbering other pins
     DDRB |= _BV(DDB5);
 
-    mySerial.begin(9600);
+    mySerial.begin(NPK_RS485_DEFAULT.baudRate);
     Serial.begin(9600);
     Serial.println("RIoS Blink Example");
 
-    pinMode(RE_PIN, OUTPUT);
-    pinMode(DE_PIN, OUTPUT);
-    // Default to receive mode
-    digitalWrite(RE_PIN, LOW);
-    digitalWrite(DE_PIN, LOW);
+    gModbusClient.io = &mySerial;
+    gModbusClient.rePin = RE_PIN;
+    gModbusClient.dePin = DE_PIN;
+    gModbusClient.rs485 = NPK_RS485_DEFAULT;
+    gModbusClient.timeoutMs = 200;
+    gModbusClient.maxRetries = 2;
+    modbus_client_init(&gModbusClient);
+
+    soil_sensor_init(&gSensor, &gModbusClient, 0x01);
 
     // Initialize scheduler with tasks
     scheduler_init(tasks, TOTAL_TASKS_NUM);
