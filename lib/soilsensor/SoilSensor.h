@@ -1,6 +1,6 @@
 /**
  * @file SoilSensor.h
- * @author your name
+ * @author VigneshRR
  * @brief Arduino library for the JXBS-3001-NPK-RS 7-in-1 Soil Sensor.
  * 
  * This library provides a simple interface to read data from the soil sensor
