@@ -112,7 +112,8 @@ float SoilSensor::readTemperature() {
  * @brief See SoilSensor.h for documentation.
  */
 uint16_t SoilSensor::readConductivity() {
-    return getRegisterValue(SOIL_CONDUCTIVITY_REG);
+    uint16_t val = getRegisterValue(SOIL_CONDUCTIVITY_REG);
+    return val != 0xFFFF ? val * 10 : 0;
 }
 
 /**
@@ -121,7 +122,7 @@ uint16_t SoilSensor::readConductivity() {
 float SoilSensor::readPH() {
     uint16_t val = getRegisterValue(SOIL_PH_REG);
     // Scale the raw value according to the sensor's documentation.
-    return val != 0xFFFF ? val / 10.0f : -1.0f;
+    return val != 0xFFFF ? val / 100.0f : -1.0f;
 }
 
 /**
@@ -149,13 +150,15 @@ uint16_t SoilSensor::readPotassium() {
  * @brief See SoilSensor.h for documentation.
  */
 bool SoilSensor::readAll(SensorData &data) {
+    _node.clearResponseBuffer();
     // The sensor's registers are not in a single contiguous block, so we must
     // perform multiple read transactions.
     
     uint8_t result = _node.readHoldingRegisters(SOIL_PH_REG, 1);
     if (result == _node.ku8MBSuccess) {
-        data.ph = _node.getResponseBuffer(0) / 10.0f;
+        data.ph = _node.getResponseBuffer(0) / 100.0f;
     } else {
+        data.ph = -1.0f;
         return false;
     }
 
@@ -164,13 +167,16 @@ bool SoilSensor::readAll(SensorData &data) {
         data.moisture = _node.getResponseBuffer(0) / 10.0f;
         data.temperature = _node.getResponseBuffer(1) / 10.0f;
     } else {
+        data.moisture = -1.0f;
+        data.temperature = -999.0f;
         return false;
     }
 
     result = _node.readHoldingRegisters(SOIL_CONDUCTIVITY_REG, 1);
     if (result == _node.ku8MBSuccess) {
-        data.conductivity = _node.getResponseBuffer(0);
+        data.conductivity = _node.getResponseBuffer(0) * 10;
     } else {
+        data.conductivity = 0;
         return false;
     }
 
@@ -180,6 +186,10 @@ bool SoilSensor::readAll(SensorData &data) {
         data.phosphorus = _node.getResponseBuffer(1);
         data.potassium = _node.getResponseBuffer(2);
         return true;
+    } else {
+        data.nitrogen = 0xFFFF;
+        data.phosphorus = 0xFFFF;
+        data.potassium = 0xFFFF;
     }
     
     return false;

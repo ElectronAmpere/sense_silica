@@ -2,6 +2,31 @@
 
 This project reads an RS485 soil sensor (NPK + temperature, humidity, pH, conductivity) over Modbus RTU using a lightweight real-time scheduler (RIoS).
 
+## Parameters
+
+| **Parameter**                  | **Value**                                     |
+|--------------------------------|-----------------------------------------------|
+| Power supply                   | 5-24V DC                                      |
+| Output signal                  | RS485                                         |
+| Temperature range              | -40℃ to 80℃                                  |
+| Temperature accuracy           | ±0.5℃                                         |
+| Temperature resolution         | 0.1℃                                          |
+| Water measurement range        | 0-100%                                       |
+| Moisture accuracy              | ±3% (Within 0-53%); ±5% (Within 53-100%)     |
+| Water resolution               | 0.10%                                        |
+| Electrical conductivity range  | 0-10000 µS/cm                              |
+| Conductivity resolution        | 10 µS/cm                                   |
+| pH measurement range           | 3-9 pH                                    |
+| pH measurement accuracy        | ±0.3 pH                                   |
+| pH resolution                  | 0.01 pH                                   |
+| NPK measurement range          | 0-1999 mg/kg                               |
+| NPK measurement accuracy       | ±2% F.S                                   |
+| NPK resolution                 | 1 mg/kg (mg/L)                            |
+| Storage environment            | -20℃ to 60℃                               |
+| Working pressure range         | 0.9-1.1 atm                               |
+| Response time                  | <1s                                       |
+| Protection level               | IP68                                       |
+
 ## Architecture
 
 - **Hardware Layer**: AVR + RS485 transceiver. RE/DE pins control half‑duplex.
