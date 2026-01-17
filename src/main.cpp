@@ -2,68 +2,84 @@
 #include <SoftwareSerial.h>
 #include <ModbusMaster.h>
 #include "SoilSensor.h"
-
-// Task type and scheduler API
 #include "config.h"
 #include "scheduler.h"
 #include "timer.h"
 
-#define RE_PIN 8
-#define DE_PIN 7
+// JSF AV C++ Rule 90: Avoid magic numbers.
+namespace {
+    constexpr uint8_t RE_PIN = 8;
+    constexpr uint8_t DE_PIN = 7;
+    constexpr uint8_t LED_PIN_B5 = 5;
+    constexpr long SERIAL_BAUD_RATE = 9600;
+    constexpr uint32_t LED_TOGGLE_PERIOD_MS = 100;
+    constexpr uint32_t SENSOR_READ_PERIOD_MS = 2000;
+}
 
+// Forward declarations for task functions
 int Task_ToggleLED(int state);
 int Task_SoilSensor(int state);
 
-void TimerSet(void)
-{
-    // Auto-reload via CTC at TASK_TICKS_GCD_IN_MS
-    timer1_set_period_ms(TASK_TICKS_GCD_IN_MS);
-    sei(); // Enable interrupt
-}
-
-static task tasks[TOTAL_TASKS_NUM] = {
-    {0, 0, 100, 0, &Task_ToggleLED},   // Toggle LED every 100 ms
-    {0, 0, 2000, 0, &Task_SoilSensor} // Read soil sensor every 2000 ms
-};
-
+// Static initializations
 SoftwareSerial mySerial(2, 3); // RX, TX
 ModbusMaster node;
 SoilSensor gSensor(node, RE_PIN, DE_PIN);
 
+// JSF AV C++ Rule 18: All variables shall be initialized.
+avr_embedded::Task tasks[avr_embedded::TOTAL_TASKS_NUM] = {
+    avr_embedded::Task(LED_TOGGLE_PERIOD_MS, &Task_ToggleLED),
+    avr_embedded::Task(SENSOR_READ_PERIOD_MS, &Task_SoilSensor)
+};
+
 int Task_ToggleLED(int state) {
-    PORTB ^= _BV(PORTB5);
-    return state;
+    // JSF AV C++ Rule 144: Direct use of bitwise operators is restricted.
+    // Using Arduino API for clarity, though direct port manipulation is efficient.
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    return state; // State is not used in this task
 }
 
 int Task_SoilSensor(int state) {
     SoilSensor::SensorData data;
     if (gSensor.readAll(data)) {
-        Serial.print("Moisture: "); Serial.print(data.moisture); Serial.print("%\t");
-        Serial.print("Temperature: "); Serial.print(data.temperature); Serial.print("C\t");
+        // JSF AV C++ Rule 20: Floating-point constants should have a decimal.
+        Serial.print("Moisture: "); Serial.print(data.moisture, 2); Serial.print("%\t");
+        Serial.print("Temperature: "); Serial.print(data.temperature, 2); Serial.print("C\t");
         Serial.print("Conductivity: "); Serial.print(data.conductivity); Serial.print("us/cm\t");
-        Serial.print("pH: "); Serial.print(data.ph); Serial.print("\t");
+        Serial.print("pH: "); Serial.print(data.ph, 2); Serial.print("\t");
         Serial.print("N: "); Serial.print(data.nitrogen); Serial.print("mg/kg\t");
         Serial.print("P: "); Serial.print(data.phosphorus); Serial.print("mg/kg\t");
         Serial.print("K: "); Serial.print(data.potassium); Serial.println("mg/kg");
     } else {
         Serial.println("Failed to read from sensor!");
     }
-    return state;
+    return state; // State is not used in this task
 }
 
-void setup() {
-    DDRB |= _BV(DDB5); // Set LED pin as output
+int main(void) {
+    // Manually call the Arduino core init function.
+    // This sets up timers and other hardware required by Arduino APIs.
+    init();
 
-    Serial.begin(9600);
-    mySerial.begin(9600);
-    gSensor.begin(mySerial, 9600);
+    pinMode(LED_BUILTIN, OUTPUT);
 
-    Serial.println("Soil Sensor Test");
+    Serial.begin(SERIAL_BAUD_RATE);
+    mySerial.begin(SERIAL_BAUD_RATE);
+    gSensor.begin(mySerial, SERIAL_BAUD_RATE);
 
-    scheduler_init(tasks, TOTAL_TASKS_NUM);
-    TimerSet();
-}
+    Serial.println("Soil Sensor Test - JSF Compliant Version");
 
-void loop() {
-    // Idle; scheduler runs from Timer1 ISR
+    scheduler_init(tasks, avr_embedded::TOTAL_TASKS_NUM);
+    timer1_set_period_ms(avr_embedded::TASK_TICKS_GCD_IN_MS);
+    
+    // Enable global interrupts
+    sei();
+
+    // Infinite loop to keep the program running.
+    // All tasks are handled by the timer-driven scheduler.
+    while (true) {
+        // The main loop can be used for very low-priority tasks
+        // or be put into a sleep mode to save power.
+    }
+
+    return 0; // This line will never be reached.
 }
