@@ -249,6 +249,10 @@ bool modbus_client_probe_addresses(ModbusClientConfig* cfg,
     uint8_t req[8];
     for (uint8_t i = 0; i < addrCount; ++i) {
         uint8_t addr = addrs[i];
+        if (cfg->trace) {
+            LOGD("MODBUS", "probe try");
+            log_kv_hex8("MODBUS", "addr", "id", addr);
+        }
         modbus_rtu_build_read_request(addr, 0x0012, 1, req);
         if (!modbus_tx_request(cfg, req, sizeof(req))) {
             continue;
@@ -268,14 +272,17 @@ bool modbus_client_probe_addresses(ModbusClientConfig* cfg,
             }
         }
         if (hidx < 3) {
+            if (cfg->trace) LOGW("MODBUS", "probe timeout header");
             continue; // no header
         }
         if (header[0] != addr || header[1] != MODBUS_FUNC_READ_HOLDING_REGS) {
+            if (cfg->trace) LOGW("MODBUS", "probe addr/func mismatch");
             continue; // mismatch
         }
         uint8_t byteCount = header[2];
         // For qty=1, expect 2 data bytes
         if (byteCount != 2) {
+            if (cfg->trace) LOGW("MODBUS", "probe byteCount mismatch");
             continue;
         }
         // Read data + crc
@@ -295,10 +302,12 @@ bool modbus_client_probe_addresses(ModbusClientConfig* cfg,
             }
         }
         if (tidx < tailLen) {
+            if (cfg->trace) LOGW("MODBUS", "probe timeout data");
             continue;
         }
         uint8_t bc; const uint8_t* dataStart;
         if (!modbus_rtu_parse_read_response(frame, frameLen, addr, &bc, &dataStart)) {
+            if (cfg->trace) LOGW("MODBUS", "probe parse failed");
             continue;
         }
         if (outAddr) *outAddr = addr;

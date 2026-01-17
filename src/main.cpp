@@ -1,8 +1,6 @@
 /**
- * Simple Blink Example for RIoS
+ * Simple Blink + Sensor Scheduler using RIoS-style cooperative tasks
  * https://www.cs.ucr.edu/~vahid/pubs/wese12_rios.pdf
- * https://www.cs.ucr.edu/~vahid/rios/
- * https://www.cs.ucr.edu/~vahid/pes/RITools/ 
  */
 /** Generic library */
 #include <avr/interrupt.h>
@@ -75,7 +73,7 @@ int Task_SoilSensor(int state) {
                 uint8_t req[8];
                 modbus_rtu_build_read_request(0x01, 0x001E, 1, req);
                 uint8_t buf[32]; uint8_t len = 0;
-                bool ok = modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
+                (void)modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
                 Serial.print("RAW resp ("); Serial.print(len); Serial.println(") bytes:");
                 for (uint8_t i = 0; i < len; ++i) { Serial.print(buf[i], HEX); Serial.print(' '); }
                 Serial.println();
@@ -83,7 +81,7 @@ int Task_SoilSensor(int state) {
                 // Also dump moisture+temperature (0x0012, qty=2)
                 modbus_rtu_build_read_request(0x01, 0x0012, 2, req);
                 len = 0;
-                ok = modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
+                (void)modbus_client_request_raw(&gModbusClient, req, sizeof(req), buf, sizeof(buf), &len);
                 Serial.print("RAW resp MT ("); Serial.print(len); Serial.println(") bytes:");
                 for (uint8_t i = 0; i < len; ++i) { Serial.print(buf[i], HEX); Serial.print(' '); }
                 Serial.println();
@@ -98,8 +96,6 @@ int Task_SoilSensor(int state) {
     }
     return state;
 }
-
-// (legacy nitro/values removed; using generic Modbus helper)
 
 // --- Modbus RTU helpers for JXBS-3001-NPK-RS ---
 static void print_all_values() {
@@ -117,16 +113,16 @@ static void print_all_values() {
     Serial.print(" | K (mg/kg): "); Serial.println(d.potassium);
 }
 
-// (removed legacy getSoilNitrogenLevel; using print_npk_values in task)
-
-int main() {
-
+// Arduino setup/loop entry points
+void setup() {
     // Set PB5 as output without clobbering other pins
     DDRB |= _BV(DDB5);
 
     mySerial.begin(NPK_RS485_DEFAULT.baudRate);
     Serial.begin(9600);
-    Serial.println("RIoS Blink Example");
+    Serial.println("RIoS Blink + Sensor Scheduler");
+    // Give the monitor a moment to attach before probe logs
+    delay(300);
 
     gModbusClient.io = &mySerial;
     gModbusClient.rePin = RE_PIN;
@@ -141,14 +137,22 @@ int main() {
 
     // Probe for sensor across common baud rates and addresses
     const uint32_t bauds[] = {9600, 4800, 2400};
-    const uint8_t addrs[] = {0x01, 0x02, 0x03, 0x04, 0x05};
+    const uint8_t addrs[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     uint8_t foundAddr = 0;
     uint32_t foundBaud = 0;
     for (uint8_t bi = 0; bi < sizeof(bauds)/sizeof(bauds[0]); ++bi) {
         foundAddr = 0; foundBaud = bauds[bi];
         mySerial.begin(foundBaud);
+        // Tune timeout per baud (slower baud → longer timeout)
+        if (foundBaud >= 9600) gModbusClient.timeoutMs = 500;
+        else if (foundBaud >= 4800) gModbusClient.timeoutMs = 700;
+        else gModbusClient.timeoutMs = 900;
         gModbusClient.rs485.baudRate = foundBaud;
         modbus_client_init(&gModbusClient);
+        Serial.print("Probing baud "); Serial.print(foundBaud);
+        Serial.print(" addresses: ");
+        for (uint8_t i = 0; i < (uint8_t)(sizeof(addrs)/sizeof(addrs[0])); ++i) { Serial.print(addrs[i], HEX); Serial.print(' '); }
+        Serial.println();
         if (modbus_client_probe_addresses(&gModbusClient, addrs, sizeof(addrs), &foundAddr)) {
             break;
         }
@@ -159,6 +163,7 @@ int main() {
         foundBaud = 9600;
         mySerial.begin(foundBaud);
         gModbusClient.rs485.baudRate = foundBaud;
+        gModbusClient.timeoutMs = 500;
         modbus_client_init(&gModbusClient);
     } else {
         Serial.print("Probe success: addr="); Serial.print(foundAddr, HEX);
@@ -171,12 +176,8 @@ int main() {
     scheduler_init(tasks, TOTAL_TASKS_NUM);
 
     TimerSet();
+}
 
-    while(1)
-    {
-        // Do anything, this timer is non-blocking. It will interrupt the CPU only when needed
-    }
-    
-    // Add return so old compilers don't cry about it being missing. Under normal circumstances this will never be hit
-    return 0;
+void loop() {
+    // Idle; scheduler runs from Timer1 ISR
 }
