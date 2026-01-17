@@ -1,8 +1,6 @@
 #ifndef SOIL_SENSOR_LIB_H
 #define SOIL_SENSOR_LIB_H
 
-#define SOIL_SENSOR_DEBUG
-
 #include <ModbusMaster.h>
 
 // From the PDF, the registers are:

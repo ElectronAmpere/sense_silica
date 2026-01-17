@@ -35,22 +35,9 @@ void SoilSensor::postTransmission() {
 }
 
 uint16_t SoilSensor::getRegisterValue(uint16_t reg) {
-    #ifdef SOIL_SENSOR_DEBUG
-    Serial.print("Reading register: 0x");
-    Serial.println(reg, HEX);
-    #endif
     uint8_t result = _node.readHoldingRegisters(reg, 1);
-    #ifdef SOIL_SENSOR_DEBUG
-    Serial.print("Modbus result: ");
-    Serial.println(result);
-    #endif
     if (result == _node.ku8MBSuccess) {
-        uint16_t value = _node.getResponseBuffer(0);
-        #ifdef SOIL_SENSOR_DEBUG
-        Serial.print("Value: ");
-        Serial.println(value);
-        #endif
-        return value;
+        return _node.getResponseBuffer(0);
     }
     return 0xFFFF; // Error
 }
@@ -87,9 +74,6 @@ uint16_t SoilSensor::readPotassium() {
 }
 
 bool SoilSensor::readAll(SensorData &data) {
-    #ifdef SOIL_SENSOR_DEBUG
-    Serial.println("Reading all registers...");
-    #endif
     uint8_t result = _node.readHoldingRegisters(SOIL_PH_REG, 1);
     if (result == _node.ku8MBSuccess) {
         data.ph = _node.getResponseBuffer(0) / 10.0f;
@@ -120,9 +104,6 @@ bool SoilSensor::readAll(SensorData &data) {
         return true;
     }
     
-    #ifdef SOIL_SENSOR_DEBUG
-    Serial.println("Failed to read all registers");
-    #endif
     return false;
 }
 
