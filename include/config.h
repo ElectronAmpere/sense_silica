@@ -20,7 +20,7 @@ constexpr uint32_t TASK_TICKS_GCD_IN_MS = 25;
 /**
  * @brief The total number of non-idle tasks configured in the application.
  */
-constexpr uint8_t TOTAL_TASKS_NUM = 2;
+constexpr uint8_t TOTAL_TASKS_NUM = 3;
 
 /**
  * @brief The maximum number of tasks that can be in a 'running' state simultaneously.
