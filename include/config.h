@@ -21,8 +21,8 @@ namespace pins {
     constexpr long SERIAL_BAUD_RATE = 9600;
 
     // RS485 module connections
-    constexpr uint8_t RE_PIN = 8;  // RS485-Module an DI
-    constexpr uint8_t DE_PIN = 7;  // RS485-Module an RE und DE
+    constexpr uint8_t RE_PIN = 5;  // RS485-Module an DI
+    constexpr uint8_t DE_PIN = 6;  // RS485-Module an RE und DE
     constexpr uint8_t RX_PIN = 2;  // RS485-Module an RO
     constexpr uint8_t TX_PIN = 3;  // RS485-Module an DI
 
