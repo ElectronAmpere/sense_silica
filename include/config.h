@@ -2,6 +2,15 @@
 #define CONFIG_H
 
 #include <stdint.h>
+// Feature flags (compile-time)
+// Defaults: enabled. Override via PlatformIO build_flags, e.g., -DENABLE_LCD=0 -DENABLE_SENSOR=0
+#if !defined(ENABLE_LCD)
+#define ENABLE_LCD 1
+#endif
+#if !defined(ENABLE_SENSOR)
+#define ENABLE_SENSOR 1
+#endif
+
 
 // JSF AV C++ Rule 10: The #define directive shall not be used to create constants.
 // Use const or constexpr instead.
@@ -33,24 +42,30 @@ namespace pins {
 namespace timing {
     constexpr uint32_t LED_TOGGLE_PERIOD_MS = 100;
     constexpr uint32_t SENSOR_READ_PERIOD_MS = 2000;
-    constexpr uint32_t LCD_UPDATE_PERIOD_MS = 2000;
+    constexpr uint32_t LCD_UPDATE_PERIOD_MS = 4000; // Slower update to reduce flicker
 }
 
-namespace avr_embedded {
+// UI configuration
+namespace ui {
+    // Total number of LCD pages to cycle through
+    constexpr uint8_t LCD_PAGE_COUNT = 4; // (1) Temp/Moist, (2) pH/Cond, (3) NPK, (4) Status
+}
 
-/**
- * @brief The greatest common divisor (GCD) of all task periods, in milliseconds.
- * @details This value determines the fundamental tick rate of the scheduler.
- *          All task periods must be a multiple of this value.
- */
-constexpr uint32_t TASK_TICKS_GCD_IN_MS = 100; // GCD of 100, 2000, 2000 is 100
+namespace scheduler {
 
-/**
- * @brief The total number of non-idle tasks configured in the application.
- */
-constexpr uint8_t TOTAL_TASKS_NUM = 3; // LED, Sensor, and LCD tasks
-constexpr uint8_t TOTAL_TASKS_RUNNING_NUM = TOTAL_TASKS_NUM + 1;
-constexpr uint8_t IDLE_TASK_RUNNING_INDICATOR = 255;
+    /**
+    * @brief The greatest common divisor (GCD) of all task periods, in milliseconds.
+    * @details This value determines the fundamental tick rate of the scheduler.
+    *          All task periods must be a multiple of this value.
+    */
+    constexpr uint32_t TASK_TICKS_GCD_IN_MS = 100; // GCD of 100, 2000, 2000 is 100
+
+    /**
+    * @brief The total number of non-idle tasks configured in the application.
+    */
+    constexpr uint8_t TOTAL_TASKS_NUM = 3; // LED, Sensor, and LCD tasks
+    constexpr uint8_t TOTAL_TASKS_RUNNING_NUM = TOTAL_TASKS_NUM + 1;
+    constexpr uint8_t IDLE_TASK_RUNNING_INDICATOR = 255;
 }
 
 #endif // CONFIG_H

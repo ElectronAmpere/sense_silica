@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include "config.h"
 
-namespace avr_embedded {
+namespace scheduler {
 
 /**
  * @brief Function pointer type for a task's tick function.
@@ -88,14 +88,14 @@ private:
     
     // JSF AV C++ Rule 70: The volatile keyword shall not be used.
     // Instead, atomicity is handled by the caller (e.g., in the ISR).
-    uint8_t runningTasks[avr_embedded::TOTAL_TASKS_RUNNING_NUM]; ///< Array to track running task indices.
+    uint8_t runningTasks[scheduler::TOTAL_TASKS_RUNNING_NUM]; ///< Array to track running task indices.
     uint8_t currentTask;                           ///< Index of the currently executing task.
 };
 
-} // namespace avr_embedded
+} // namespace scheduler
 
 // C-style wrapper functions for compatibility with existing C code (e.g., ISRs)
-void scheduler_init(avr_embedded::Task* tasks, uint8_t tasks_num) noexcept;
+void scheduler_init(scheduler::Task* tasks, uint8_t tasks_num) noexcept;
 void scheduler_tick() noexcept;
 
 #endif // SCHEDULER_H
