@@ -29,10 +29,10 @@ namespace pins {
     // LCD 16x2 connections
     constexpr uint8_t LCD_RS_PIN = 12;
     constexpr uint8_t LCD_EN_PIN = 11;
-    constexpr uint8_t LCD_D4_PIN = 5;
-    constexpr uint8_t LCD_D5_PIN = 4;
-    constexpr uint8_t LCD_D6_PIN = 3;
-    constexpr uint8_t LCD_D7_PIN = 2;
+    constexpr uint8_t LCD_D4_PIN = 10;
+    constexpr uint8_t LCD_D5_PIN = 9;
+    constexpr uint8_t LCD_D6_PIN = 8;
+    constexpr uint8_t LCD_D7_PIN = 7;
 
     // Built-in LED for status indication
     constexpr uint8_t LED_PIN_B5 = 13; // Standard Arduino Uno LED

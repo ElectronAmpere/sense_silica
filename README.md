@@ -87,10 +87,10 @@ This project uses a JHD 16×2 character LCD in 4‑bit mode via the local `lib/l
 - R/W → GND (write‑only)
 - E → Arduino D11
 - DB0–DB3 → not used (leave unconnected)
-- DB4 → Arduino D5
-- DB5 → Arduino D4
-- DB6 → Arduino D3
-- DB7 → Arduino D2
+- DB4 → Arduino D10
+- DB5 → Arduino D9
+- DB6 → Arduino D8
+- DB7 → Arduino D7
 - LED+ → 5V through a 220Ω resistor (if not on module)
 - LED− → GND
 
