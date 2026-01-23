@@ -133,3 +133,7 @@ Build and upload with PlatformIO:
 ```bash
 C:\Users\xvj1kor\.platformio\penv\Scripts\platformio.exe run --target upload
 ```
+
+### Reference
+
+[Arduino with HD44780 based Character LCDs](https://www.martyncurrey.com/arduino-with-hd44780-based-lcds)
