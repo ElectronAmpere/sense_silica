@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "config.h"
 #include "scheduler.h"
 #include "tasks.h"
@@ -45,50 +47,63 @@ int Task_LcdUpdate(int state) {
 
     switch (page) {
         case 0U: { // Temperature & Moisture
-            gLcd.setCursor(0U, 0U);
-            gLcd.print("Temp:");
-            gLcd.print(gSensorData.temperature, 1U);
-            gLcd.print("C");
+            char line1[17];
+            char line2[17];
+            char tempBuf[12];
+            char moistBuf[12];
 
+            dtostrf(gSensorData.temperature, 0, 1, tempBuf);
+            dtostrf(gSensorData.moisture, 0, 1, moistBuf);
+
+            snprintf(line1, sizeof(line1), "Temp:%s degC", tempBuf);
+            snprintf(line2, sizeof(line2), "Moist:%s %%", moistBuf);
+
+            gLcd.setCursor(0U, 0U);
+            gLcd.print(line1);
             gLcd.setCursor(0U, 1U);
-            gLcd.print("Moist:");
-            gLcd.print(gSensorData.moisture, 1U);
-            gLcd.print("%");
+            gLcd.print(line2);
             break;
         }
         case 1U: { // pH & Conductivity
-            gLcd.setCursor(0U, 0U);
-            gLcd.print("pH:");
-            gLcd.print(gSensorData.ph, 2U);
+            char line1[17];
+            char line2[17];
+            char phBuf[12];
 
+            dtostrf(gSensorData.ph, 0, 2, phBuf);
+            snprintf(line1, sizeof(line1), "pH:%s", phBuf);
+            snprintf(line2, sizeof(line2), "Cond:%d uS", static_cast<int>(gSensorData.conductivity));
+
+            gLcd.setCursor(0U, 0U);
+            gLcd.print(line1);
             gLcd.setCursor(0U, 1U);
-            gLcd.print("Cond:");
-            gLcd.print(static_cast<int>(gSensorData.conductivity));
-            gLcd.print("uS");
+            gLcd.print(line2);
             break;
         }
         case 2U: { // N, P, K
-            gLcd.setCursor(0U, 0U);
-            gLcd.print("N:");
-            gLcd.print(static_cast<int>(gSensorData.nitrogen));
-            gLcd.print(" P:");
-            gLcd.print(static_cast<int>(gSensorData.phosphorus));
+            char line1[17];
+            char line2[17];
+            snprintf(line1, sizeof(line1), "N:%d P:%d",
+                     static_cast<int>(gSensorData.nitrogen),
+                     static_cast<int>(gSensorData.phosphorus));
+            snprintf(line2, sizeof(line2), "K:%d mg/kg",
+                     static_cast<int>(gSensorData.potassium));
 
+            gLcd.setCursor(0U, 0U);
+            gLcd.print(line1);
             gLcd.setCursor(0U, 1U);
-            gLcd.print("K:");
-            gLcd.print(static_cast<int>(gSensorData.potassium));
-            gLcd.print(" mg/kg");
+            gLcd.print(line2);
             break;
         }
         default: { // Status page: Baud + last read status
-            gLcd.setCursor(0U, 0U);
-            gLcd.print("Baud:");
-            gLcd.print(static_cast<int>(pins::SERIAL_BAUD_RATE));
+            char line1[17];
+            char line2[17];
+            snprintf(line1, sizeof(line1), "Baud:%d", static_cast<int>(pins::SERIAL_BAUD_RATE));
+            snprintf(line2, sizeof(line2), "Status:%s", gLastReadOk ? "OK" : "ERR");
 
+            gLcd.setCursor(0U, 0U);
+            gLcd.print(line1);
             gLcd.setCursor(0U, 1U);
-            gLcd.print("Status:");
-            gLcd.print(gLastReadOk ? 'O' : 'E');
-            gLcd.print(gLastReadOk ? "K" : "RR");
+            gLcd.print(line2);
             break;
         }
     }
