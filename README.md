@@ -75,3 +75,65 @@ See `src/main.cpp` for initialization and periodic polling. On startup, the app 
 - The Modbus client enforces the initial silent interval and validates CRC. Add a post‑response silent interval if polling faster than ~100 ms.
 - Temperature is signed: register value is 0.1 °C per unit; negative values are two’s complement.
 - RE/DE polarity: `ModbusClientConfig` supports `reActiveLow` and `deActiveHigh` for MAX485 and similar. If wiring is inverted, adjust these flags accordingly.
+
+## LCD Wiring (JHD 16×2, HD44780‑compatible)
+
+This project uses a JHD 16×2 character LCD in 4‑bit mode via the local `lib/lcd` driver. Connect as follows:
+
+- Vss → GND
+- Vdd → 5V
+- Vee → 10k potentiometer wiper (pot ends to 5V and GND) for contrast
+- RS → Arduino D12
+- R/W → GND (write‑only)
+- E → Arduino D11
+- DB0–DB3 → not used (leave unconnected)
+- DB4 → Arduino D10
+- DB5 → Arduino D9
+- DB6 → Arduino D8
+- DB7 → Arduino D7
+- LED+ → 5V through a 220Ω resistor (if not on module)
+- LED− → GND
+
+### Notes
+
+- Common ground: tie Arduino GND, LCD Vss/LED−, and sensor/RS485 grounds together.
+- Start the 10k pot mid‑position; adjust Vee until characters are visible.
+- Backlight current is typically ~15–20 mA; prefer a series resistor and avoid driving LED+ directly from an I/O pin.
+- Only DB4–DB7 are used in 4‑bit mode; ensure R/W is tied to GND.
+
+### Code
+
+- Initialization occurs in `src/main.cpp` with `gLcd.begin()` and periodic updates in `Task_LcdUpdate()`.
+- Pin mappings are defined in `include/config.h` under the `pins` namespace.
+
+### LCD Quick Test
+
+To validate wiring independently of the sensor, upload this minimal sketch (pin map matches the project):
+
+```cpp
+#include <Arduino.h>
+#include "lcd.h"
+
+LCD lcd(12, 11, 5, 4, 3, 2); // RS, E, D4–D7
+
+void setup() {
+  lcd.begin();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Hello JHD 16x2");
+  lcd.setCursor(0, 1);
+  lcd.print("Pins RS12 E11");
+}
+
+void loop() {}
+```
+
+Build and upload with PlatformIO:
+
+```bash
+C:\Users\xvj1kor\.platformio\penv\Scripts\platformio.exe run --target upload
+```
+
+### Reference
+
+[Arduino with HD44780 based Character LCDs](https://www.martyncurrey.com/arduino-with-hd44780-based-lcds)

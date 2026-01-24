@@ -7,14 +7,14 @@
 // JSF AV C++ Rule 12: Use file scope for objects not visible externally.
 namespace {
     // Global pointer to the scheduler instance
-    avr_embedded::Scheduler* g_scheduler_instance = nullptr;
+    scheduler::Scheduler* g_scheduler_instance = nullptr;
 }
 
 // C-style wrapper implementations
-void scheduler_init(avr_embedded::Task* tasks, uint8_t tasks_num) noexcept {
+void scheduler_init(scheduler::Task* tasks, uint8_t tasks_num) noexcept {
     // JSF AV C++ Rule 18: All variables shall be initialized before use.
     // This static instance is initialized on first use.
-    static avr_embedded::Scheduler scheduler(tasks, tasks_num);
+    static scheduler::Scheduler scheduler(tasks, tasks_num);
     g_scheduler_instance = &scheduler;
 }
 
@@ -25,7 +25,7 @@ void scheduler_tick() noexcept {
     }
 }
 
-namespace avr_embedded {
+namespace scheduler {
 
 // JSF AV C++ Rule 39: All constructors shall be declared explicit.
 Task::Task(uint32_t period, TickFunction tick_fct) noexcept
@@ -94,4 +94,4 @@ void Scheduler::tick() noexcept {
     }
 }
 
-} // namespace avr_embedded
+} // namespace scheduler
