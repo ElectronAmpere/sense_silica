@@ -4,6 +4,12 @@
 	(generator_version "9.0")
 	(uuid "cc7e64d1-f4b6-4bbc-8e9d-ded6c9dcaace")
 	(paper "A4")
+	(title_block
+		(title "Sense Silica")
+		(date "2026-01-26")
+		(rev "V1.0")
+		(comment 4 "Author: VigneshRR")
+	)
 	(lib_symbols
 		(symbol "Connector:Conn_01x04_Pin"
 			(pin_names
